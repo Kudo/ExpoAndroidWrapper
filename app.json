@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "ExpoAndroidWrapper",
+    "slug": "ExpoAndroidWrapper",
+    "version": "1.0.0",
+    "assetBundlePatterns": [
+      "**/*"
+    ]
+  },
+  "name": "ExpoAndroidWrapper"
+}
