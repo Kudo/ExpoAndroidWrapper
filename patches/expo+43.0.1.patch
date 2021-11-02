@@ -1,0 +1,182 @@
+diff --git a/node_modules/expo/android/proguard-rules.pro b/node_modules/expo/android/proguard-rules.pro
+index ee2d640..cec762d 100644
+--- a/node_modules/expo/android/proguard-rules.pro
++++ b/node_modules/expo/android/proguard-rules.pro
+@@ -1,6 +1,7 @@
+ # For ReactNativeDelegateWrapper
+ -keepclassmembers public class com.facebook.react.ReactActivityDelegate {
+   protected *;
++  private ReactDelegate mReactDelegate;
+ }
+ 
+ # For ReactNativeHostWrapper
+diff --git a/node_modules/expo/android/src/main/java/expo/modules/ApplicationLifecycleDispatcher.kt b/node_modules/expo/android/src/main/java/expo/modules/ApplicationLifecycleDispatcher.kt
+index c0c8f89..8f7774c 100644
+--- a/node_modules/expo/android/src/main/java/expo/modules/ApplicationLifecycleDispatcher.kt
++++ b/node_modules/expo/android/src/main/java/expo/modules/ApplicationLifecycleDispatcher.kt
+@@ -2,12 +2,14 @@ package expo.modules
+ 
+ import android.app.Application
+ import android.content.res.Configuration
++import expo.modules.core.ModulePriorities
+ 
+ class ApplicationLifecycleDispatcher private constructor() {
+   companion object {
+     @JvmStatic
+     fun onApplicationCreate(application: Application) {
+       ExpoModulesPackage.packageList
++        .sortedByDescending { ModulePriorities.get(it::class.qualifiedName) }
+         .flatMap { it.createApplicationLifecycleListeners(application) }
+         .forEach { it.onCreate(application) }
+     }
+@@ -15,6 +17,7 @@ class ApplicationLifecycleDispatcher private constructor() {
+     @JvmStatic
+     fun onConfigurationChanged(application: Application, newConfig: Configuration) {
+       ExpoModulesPackage.packageList
++        .sortedByDescending { ModulePriorities.get(it::class.qualifiedName) }
+         .flatMap { it.createApplicationLifecycleListeners(application) }
+         .forEach { it.onConfigurationChanged(newConfig) }
+     }
+diff --git a/node_modules/expo/android/src/main/java/expo/modules/ReactActivityDelegateWrapper.kt b/node_modules/expo/android/src/main/java/expo/modules/ReactActivityDelegateWrapper.kt
+index 0466f60..01415f0 100644
+--- a/node_modules/expo/android/src/main/java/expo/modules/ReactActivityDelegateWrapper.kt
++++ b/node_modules/expo/android/src/main/java/expo/modules/ReactActivityDelegateWrapper.kt
+@@ -8,10 +8,12 @@ import android.view.KeyEvent
+ import androidx.collection.ArrayMap
+ import com.facebook.react.ReactActivity
+ import com.facebook.react.ReactActivityDelegate
++import com.facebook.react.ReactDelegate
+ import com.facebook.react.ReactInstanceManager
+ import com.facebook.react.ReactNativeHost
+ import com.facebook.react.ReactRootView
+ import com.facebook.react.modules.core.PermissionListener
++import expo.modules.core.ModulePriorities
+ import java.lang.reflect.Method
+ 
+ class ReactActivityDelegateWrapper(
+@@ -19,7 +21,11 @@ class ReactActivityDelegateWrapper(
+   private val delegate: ReactActivityDelegate
+ ) : ReactActivityDelegate(activity, null) {
+   private val reactActivityLifecycleListeners = ExpoModulesPackage.packageList
++    .sortedByDescending { ModulePriorities.get(it::class.qualifiedName) }
+     .flatMap { it.createReactActivityLifecycleListeners(activity) }
++  private val reactActivityHandlers = ExpoModulesPackage.packageList
++    .sortedByDescending { ModulePriorities.get(it::class.qualifiedName) }
++    .flatMap { it.createReactActivityHandlers(activity) }
+   private val methodMap: ArrayMap<String, Method> = ArrayMap()
+ 
+   //region ReactActivityDelegate
+@@ -29,7 +35,9 @@ class ReactActivityDelegateWrapper(
+   }
+ 
+   override fun createRootView(): ReactRootView {
+-    return invokeDelegateMethod("createRootView")
++    return reactActivityHandlers.asSequence()
++      .map { it.createReactRootView(activity) }
++      .firstOrNull() ?: invokeDelegateMethod("createRootView")
+   }
+ 
+   override fun getReactNativeHost(): ReactNativeHost {
+@@ -49,7 +57,24 @@ class ReactActivityDelegateWrapper(
+   }
+ 
+   override fun onCreate(savedInstanceState: Bundle?) {
+-    invokeDelegateMethod<Unit, Bundle?>("onCreate", arrayOf(Bundle::class.java), arrayOf(savedInstanceState))
++    // Since we just wrap `ReactActivityDelegate` but not inherit it, in its `onCreate`,
++    // the calls to `createRootView()` or `getMainComponentName()` have no chances to be our wrapped methods.
++    // Instead we intercept `ReactActivityDelegate.onCreate` and replace the `mReactDelegate` with our version.
++    // That's not ideal but works.
++    val reactDelegate = object : ReactDelegate(
++      plainActivity, reactNativeHost, mainComponentName, launchOptions
++    ) {
++      override fun createRootView(): ReactRootView {
++        return this@ReactActivityDelegateWrapper.createRootView()
++      }
++    }
++    val mReactDelegate = ReactActivityDelegate::class.java.getDeclaredField("mReactDelegate")
++    mReactDelegate.isAccessible = true
++    mReactDelegate.set(delegate, reactDelegate)
++    if (mainComponentName != null) {
++      loadApp(mainComponentName)
++    }
++
+     reactActivityLifecycleListeners.forEach { listener ->
+       listener.onCreate(activity, savedInstanceState)
+     }
+@@ -124,6 +149,7 @@ class ReactActivityDelegateWrapper(
+ 
+   //region Internals
+ 
++  @Suppress("UNCHECKED_CAST")
+   private fun <T> invokeDelegateMethod(name: String): T {
+     var method = methodMap[name]
+     if (method == null) {
+@@ -134,6 +160,7 @@ class ReactActivityDelegateWrapper(
+     return method!!.invoke(delegate) as T
+   }
+ 
++  @Suppress("UNCHECKED_CAST")
+   private fun <T, A> invokeDelegateMethod(
+     name: String,
+     argTypes: Array<Class<*>>,
+diff --git a/node_modules/expo/android/src/main/java/expo/modules/ReactNativeHostWrapper.kt b/node_modules/expo/android/src/main/java/expo/modules/ReactNativeHostWrapper.kt
+index bf6cdd9..e6df939 100644
+--- a/node_modules/expo/android/src/main/java/expo/modules/ReactNativeHostWrapper.kt
++++ b/node_modules/expo/android/src/main/java/expo/modules/ReactNativeHostWrapper.kt
+@@ -12,7 +12,7 @@ import com.facebook.react.bridge.JavaScriptContextHolder
+ import com.facebook.react.bridge.JavaScriptExecutorFactory
+ import com.facebook.react.bridge.ReactApplicationContext
+ import com.facebook.react.devsupport.RedBoxHandler
+-import com.facebook.react.uimanager.UIImplementationProvider
++import expo.modules.core.ModulePriorities
+ import java.lang.reflect.Method
+ 
+ class ReactNativeHostWrapper(
+@@ -20,15 +20,25 @@ class ReactNativeHostWrapper(
+   private val host: ReactNativeHost
+ ) : ReactNativeHost(application) {
+   private val reactNativeHostHandlers = ExpoModulesPackage.packageList
++    .sortedByDescending { ModulePriorities.get(it::class.qualifiedName) }
+     .flatMap { it.createReactNativeHostHandlers(application) }
+   private val methodMap: ArrayMap<String, Method> = ArrayMap()
+ 
+   override fun createReactInstanceManager(): ReactInstanceManager {
+-    // map() without asSequence() gives a chance for handlers
+-    // to get noticed before createReactInstanceManager()
+-    return reactNativeHostHandlers
+-      .map { it.createReactInstanceManager(useDeveloperSupport) }
++    val developerSupport = useDeveloperSupport
++    reactNativeHostHandlers.forEach { handler ->
++      handler.onBeforeCreateReactInstanceManager(developerSupport)
++    }
++
++    val result = reactNativeHostHandlers.asSequence()
++      .map { it.createReactInstanceManager(developerSupport) }
+       .firstOrNull() ?: super.createReactInstanceManager()
++
++    reactNativeHostHandlers.forEach { handler ->
++      handler.onDidCreateReactInstanceManager(developerSupport)
++    }
++
++    return result
+   }
+ 
+   override fun getRedBoxHandler(): RedBoxHandler? {
+@@ -39,7 +49,8 @@ class ReactNativeHostWrapper(
+     return invokeDelegateMethod("getJavaScriptExecutorFactory")
+   }
+ 
+-  override fun getUIImplementationProvider(): UIImplementationProvider {
++  @Suppress("DEPRECATION")
++  override fun getUIImplementationProvider(): com.facebook.react.uimanager.UIImplementationProvider {
+     return invokeDelegateMethod("getUIImplementationProvider")
+   }
+ 
+@@ -90,6 +101,7 @@ class ReactNativeHostWrapper(
+     }
+   }
+ 
++  @Suppress("UNCHECKED_CAST")
+   private fun <T> invokeDelegateMethod(name: String): T {
+     var method = methodMap[name]
+     if (method == null) {

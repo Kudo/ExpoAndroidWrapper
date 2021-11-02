@@ -1,0 +1,26 @@
+diff --git a/node_modules/expo-modules-autolinking/build/platforms/android.js b/node_modules/expo-modules-autolinking/build/platforms/android.js
+index 6294f85..1a62657 100644
+--- a/node_modules/expo-modules-autolinking/build/platforms/android.js
++++ b/node_modules/expo-modules-autolinking/build/platforms/android.js
+@@ -64,7 +64,7 @@ ${packagesClasses.map((packageClass) => `      new ${packageClass}()`).join(',\n
+ async function findAndroidPackagesAsync(modules) {
+     const classes = [];
+     await Promise.all(modules.map(async (module) => {
+-        const files = await fast_glob_1.default('src/**/*Package.{java,kt}', {
++        const files = await fast_glob_1.default('**/*Package.{java,kt}', {
+             cwd: module.sourceDir,
+         });
+         for (const file of files) {
+diff --git a/node_modules/expo-modules-autolinking/src/platforms/android.ts b/node_modules/expo-modules-autolinking/src/platforms/android.ts
+index 6b35565..f95f78e 100644
+--- a/node_modules/expo-modules-autolinking/src/platforms/android.ts
++++ b/node_modules/expo-modules-autolinking/src/platforms/android.ts
+@@ -82,7 +82,7 @@ async function findAndroidPackagesAsync(modules: ModuleDescriptor[]): Promise<st
+ 
+   await Promise.all(
+     modules.map(async (module) => {
+-      const files = await glob('src/**/*Package.{java,kt}', {
++      const files = await glob('**/*Package.{java,kt}', {
+         cwd: module.sourceDir,
+       });
+ 

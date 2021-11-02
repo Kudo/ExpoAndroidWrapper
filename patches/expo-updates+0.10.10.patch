@@ -1,0 +1,32 @@
+diff --git a/node_modules/expo-updates/android/src/main/java/expo/modules/updates/UpdatesPackage.java b/node_modules/expo-updates/android/src/main/java/expo/modules/updates/UpdatesPackage.java
+index 0291c44..fc3fe06 100644
+--- a/node_modules/expo-updates/android/src/main/java/expo/modules/updates/UpdatesPackage.java
++++ b/node_modules/expo-updates/android/src/main/java/expo/modules/updates/UpdatesPackage.java
+@@ -44,9 +44,6 @@ public class UpdatesPackage extends BasePackage {
+       @Nullable
+       @Override
+       public ReactInstanceManager createReactInstanceManager(boolean useDeveloperSupport) {
+-        if (shouldAutoSetup(context) && !useDeveloperSupport) {
+-          UpdatesController.initialize(context);
+-        }
+         return null;
+       }
+ 
+@@ -72,6 +69,17 @@ public class UpdatesPackage extends BasePackage {
+                                        boolean useDeveloperSupport) {
+       }
+ 
++      @Override
++      public void onBeforeCreateReactInstanceManager(boolean useDeveloperSupport) {
++        if (shouldAutoSetup(context) && !useDeveloperSupport) {
++          UpdatesController.initialize(context);
++        }
++      }
++
++      @Override
++      public void onDidCreateReactInstanceManager(boolean useDeveloperSupport) {
++      }
++
+       @UiThread
+       private boolean shouldAutoSetup(final Context context) {
+         if (mShouldAutoSetup == null) {
