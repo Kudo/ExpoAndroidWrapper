@@ -112,7 +112,7 @@ index 0000000..199e9fd
 +      }
 +
 +      @Override
-+      public void onBeforeCreateReactInstanceManager(boolean useDeveloperSupport) {
++      public void onWillCreateReactInstanceManager(boolean useDeveloperSupport) {
 +
 +      }
 +

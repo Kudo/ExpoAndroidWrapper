@@ -147,7 +147,7 @@ index bf6cdd9..e6df939 100644
 -      .map { it.createReactInstanceManager(useDeveloperSupport) }
 +    val developerSupport = useDeveloperSupport
 +    reactNativeHostHandlers.forEach { handler ->
-+      handler.onBeforeCreateReactInstanceManager(developerSupport)
++      handler.onWillCreateReactInstanceManager(developerSupport)
 +    }
 +
 +    val result = reactNativeHostHandlers.asSequence()

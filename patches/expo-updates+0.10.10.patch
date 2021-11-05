@@ -17,7 +17,7 @@ index 0291c44..fc3fe06 100644
        }
  
 +      @Override
-+      public void onBeforeCreateReactInstanceManager(boolean useDeveloperSupport) {
++      public void onWillCreateReactInstanceManager(boolean useDeveloperSupport) {
 +        if (shouldAutoSetup(context) && !useDeveloperSupport) {
 +          UpdatesController.initialize(context);
 +        }

@@ -109,7 +109,7 @@ index 4215d1d..39b903f 100644
 +  /**
 +   * Callback before {@link ReactInstanceManager} creation
 +   */
-+  fun onBeforeCreateReactInstanceManager(useDeveloperSupport: Boolean) {}
++  fun onWillCreateReactInstanceManager(useDeveloperSupport: Boolean) {}
 +
 +  /**
 +   * Callback after {@link ReactInstanceManager} creation
