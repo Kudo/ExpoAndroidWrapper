@@ -106,6 +106,7 @@ export default function App() {
         </Text>
         <AnimatedStyleUpdateExample />
       </View>
+      {/*
       <View style={styles.exampleContainer}>
         <Text style={{ fontSize: 12 }}>
           gesture-handler - drag in the grey region
@@ -113,6 +114,7 @@ export default function App() {
 
         <Circle />
       </View>
+      */}
     </View>
   );
 }
