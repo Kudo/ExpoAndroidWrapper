@@ -1,0 +1,15 @@
+diff --git a/node_modules/react-native-reanimated/android/expo/linking.gradle b/node_modules/react-native-reanimated/android/expo/linking.gradle
+index 3a583a6..b235a87 100644
+--- a/node_modules/react-native-reanimated/android/expo/linking.gradle
++++ b/node_modules/react-native-reanimated/android/expo/linking.gradle
+@@ -21,6 +21,10 @@ if (isExpoLinked) {
+             main.manifest.srcFile 'src/AndroidManifest.xml'
+             main.java.srcDirs = [ 'expo/src/main/java' ]
+         }
++
++        libraryVariants.all {
++            generateBuildConfigProvider?.get()?.enabled = false
++        }
+     }
+ 
+     dependencies {
